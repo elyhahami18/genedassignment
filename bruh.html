@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Pong Game</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #222;
+            font-family: Arial, sans-serif;
+            flex-direction: column;
+        }
+        canvas {
+            border: 2px solid white;
+            background-color: black;
+        }
+        .controls {
+            margin-top: 20px;
+            color: white;
+            text-align: center;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="color: white;">Simple Pong Game</h1>
+    <canvas id="pongCanvas" width="600" height="400"></canvas>
+    <div class="controls">
+        <p>Player 1: W (up), S (down) | Player 2: Arrow Up, Arrow Down</p>
+        <button id="startButton">Start Game</button>
+        <p id="score">Player 1: 0 | Player 2: 0</p>
+    </div>
+
+    <script>
+        // Get canvas and context
+        const canvas = document.getElementById('pongCanvas');
+        const ctx = canvas.getContext('2d');
+        const startButton = document.getElementById('startButton');
+        const scoreDisplay = document.getElementById('score');
+        
+        // Game objects
+        const paddleWidth = 10;
+        const paddleHeight = 80;
+        const ballSize = 10;
+        
+        let gameRunning = false;
+        let animationId = null;
+        
+        // Initialize game objects
+        const player1 = {
+            x: 20,
+            y: canvas.height / 2 - paddleHeight / 2,
+            width: paddleWidth,
+            height: paddleHeight,
+            score: 0,
+            dy: 0
+        };
+        
+        const player2 = {
+            x: canvas.width - 20 - paddleWidth,
+            y: canvas.height / 2 - paddleHeight / 2,
+            width: paddleWidth,
+            height: paddleHeight,
+            score: 0,
+            dy: 0
+        };
+        
+        const ball = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            size: ballSize,
+            dx: 5,
+            dy: 3,
+            speed: 5
+        };
+        
+        // Handle keyboard input
+        const keys = {};
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // Start the game
+        startButton.addEventListener('click', () => {
+            if (!gameRunning) {
+                gameRunning = true;
+                startGame();
+            } else {
+                resetGame();
+            }
+        });
+        
+        function startGame() {
+            startButton.textContent = 'Reset Game';
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            gameLoop();
+        }
+        
+        function resetGame() {
+            // Reset ball position
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            
+            // Reset ball direction with random angles
+            const angle = Math.random() * Math.PI / 2 - Math.PI / 4;
+            ball.dx = Math.cos(angle) * ball.speed * (Math.random() > 0.5 ? 1 : -1);
+            ball.dy = Math.sin(angle) * ball.speed;
+            
+            // Reset paddles
+            player1.y = canvas.height / 2 - paddleHeight / 2;
+            player2.y = canvas.height / 2 - paddleHeight / 2;
+        }
+        
+        function updatePaddles() {
+            const paddleSpeed = 8;
+            
+            // Player 1 controls (W, S)
+            if (keys['w'] || keys['W']) {
+                player1.dy = -paddleSpeed;
+            } else if (keys['s'] || keys['S']) {
+                player1.dy = paddleSpeed;
+            } else {
+                player1.dy = 0;
+            }
+            
+            // Player 2 controls (Arrow keys)
+            if (keys['ArrowUp']) {
+                player2.dy = -paddleSpeed;
+            } else if (keys['ArrowDown']) {
+                player2.dy = paddleSpeed;
+            } else {
+                player2.dy = 0;
+            }
+            
+            // Update paddle positions
+            player1.y += player1.dy;
+            player2.y += player2.dy;
+            
+            // Keep paddles on screen
+            player1.y = Math.max(0, Math.min(canvas.height - player1.height, player1.y));
+            player2.y = Math.max(0, Math.min(canvas.height - player2.height, player2.y));
+        }
+        
+        function updateBall() {
+            // Move the ball
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+            
+            // Bounce off top and bottom walls
+            if (ball.y <= 0 || ball.y >= canvas.height - ball.size) {
+                ball.dy = -ball.dy;
+            }
+            
+            // Check for paddle collisions
+            // Player 1 paddle
+            if (
+                ball.x <= player1.x + player1.width &&
+                ball.y + ball.size >= player1.y &&
+                ball.y <= player1.y + player1.height &&
+                ball.dx < 0
+            ) {
+                // Calculate bounce angle based on where the ball hits the paddle
+                const hitPosition = (ball.y - player1.y) / player1.height;
+                const angle = (hitPosition - 0.5) * Math.PI / 2; // -45 to 45 degrees
+                ball.dx = Math.cos(angle) * ball.speed;
+                ball.dy = Math.sin(angle) * ball.speed;
+                
+                // Ensure ball is moving right after hit
+                if (ball.dx < 0) ball.dx = -ball.dx;
+            }
+            
+            // Player 2 paddle
+            if (
+                ball.x + ball.size >= player2.x &&
+                ball.y + ball.size >= player2.y &&
+                ball.y <= player2.y + player2.height &&
+                ball.dx > 0
+            ) {
+                // Calculate bounce angle based on where the ball hits the paddle
+                const hitPosition = (ball.y - player2.y) / player2.height;
+                const angle = (hitPosition - 0.5) * Math.PI / 2; // -45 to 45 degrees
+                ball.dx = Math.cos(angle) * ball.speed;
+                ball.dy = Math.sin(angle) * ball.speed;
+                
+                // Ensure ball is moving left after hit
+                if (ball.dx > 0) ball.dx = -ball.dx;
+            }
+            
+            // Check for scoring
+            if (ball.x < 0) {
+                // Player 2 scores
+                player2.score++;
+                updateScore();
+                resetGame();
+            } else if (ball.x > canvas.width) {
+                // Player 1 scores
+                player1.score++;
+                updateScore();
+                resetGame();
+            }
+        }
+        
+        function updateScore() {
+            scoreDisplay.textContent = `Player 1: ${player1.score} | Player 2: ${player2.score}`;
+        }
+        
+        function drawPaddles() {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(player1.x, player1.y, player1.width, player1.height);
+            ctx.fillRect(player2.x, player2.y, player2.width, player2.height);
+        }
+        
+        function drawBall() {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(ball.x, ball.y, ball.size, ball.size);
+        }
+        
+        function drawCenterLine() {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        function gameLoop() {
+            // Clear the canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw center line
+            drawCenterLine();
+            
+            // Update game objects
+            updatePaddles();
+            updateBall();
+            
+            // Draw game objects
+            drawPaddles();
+            drawBall();
+            
+            // Continue the game loop
+            animationId = requestAnimationFrame(gameLoop);
+        }
+        
+        // Initial draw
+        drawCenterLine();
+        drawPaddles();
+        drawBall();
+    </script>
+</body>
+</html>
